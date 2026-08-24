@@ -16,7 +16,9 @@ Proofwake observes and indexes. It does not schedule CI, operate runners, deploy
 
 ## Project status
 
-The repository was originally named **Shadowbill** and currently contains a working AI-usage reckoner, Git and GitHub observation collectors, a durable local ledger, reports, a dashboard, diagnostics, and a read-only MCP server.
+The repository was originally named **Shadowbill** and currently contains Git and GitHub observation ingestion, a durable local ledger, deterministic repository/revision/activity projections, task-specific evaluation evidence, reports, a dashboard, diagnostics, a read-only MCP server, and the original optional AI-usage reckoner.
+
+Current main has moved well beyond the original estimate-only module. Local Git commits and signed GitHub webhooks can be written as strict content-minimised observations. Evaluation producers can append bounded work-evaluation and review-finding receipts, `proofwake evaluation` rebuilds a deterministic task-specific projection with immutable mark/finding history and conservative sufficiency, and the same evaluation projection is exposed through read-only MCP without gaining registry, routing, approval, or write authority.
 
 Proofwake is now the primary product and command identity. Compatibility remains for:
 
@@ -35,6 +37,8 @@ Clean installations use `~/.proofwake`. An existing `~/.shadowbill/events.jsonl`
 - [Roadmap](docs/roadmap.md) — the implementation sequence from the current Shadowbill codebase
 - [Ecosystem decisions](docs/ecosystem.md) — what existing standards and products already provide, and why Proofwake remains independent
 - [Naming migration](docs/naming-migration.md) — current aliases, precedence, storage selection, and migration safety
+- [Evaluation projection](docs/evaluation-projection.md) — current task-specific evaluation evidence model and read boundary
+- [MCP reporting](docs/mcp-reporting.md) — current read-only MCP projections and disclosure rules
 
 ## Intended composition
 
@@ -48,9 +52,22 @@ Stensibly coordinates what happens next.
 
 Proofwake should also import and export existing standards where they fit, including CloudEvents, CDEvents, OpenTelemetry semantic conventions, SLSA/in-toto provenance, and selected OpenLineage concepts.
 
-## Current implemented module: Shadowbill estimates
+## Current evidence surfaces
 
-The current implementation estimates the API-equivalent cost of subscription AI usage from observable local activity. It combines aggregate ChatGPT browser telemetry, local Git commit diffs, signed GitHub delivery events, and explicit pricing assumptions into daily, rolling, and repository-level reports.
+Proofwake's current observation/evidence model includes:
+
+- live local Git commit observations with bounded metadata and discarded source text;
+- signed GitHub webhook observations for pushes, pull requests, workflow runs, and deployment status;
+- deterministic repository, revision, activity, freshness, failure, and recovery projections;
+- strict work-evaluation and review-finding observation contracts with run attribution, confidence, uncertainty, and closed fact vocabularies;
+- `proofwake evaluation` for one repository/task-class projection with current marks/findings, immutable histories, exclusions, coverage, and limitations;
+- read-only MCP access to the merged reporting and evaluation projections.
+
+Missing or sparse evidence remains visible as missing or sparse. A projection does not manufacture a score, approval, route, or authority decision.
+
+## Optional Shadowbill estimate module
+
+The compatibility estimate module calculates the API-equivalent cost of subscription AI usage from observable local activity. It combines aggregate ChatGPT browser telemetry, local Git commit diffs, signed GitHub delivery events, and explicit pricing assumptions into daily, rolling, and repository-level reports.
 
 Conversation text and source patches stay out of the ledger.
 
@@ -64,7 +81,7 @@ Current measurements include:
 - cost per commit, merged PR, successful CI run, deployment, and retained code token;
 - heuristic repository allocation with explicit unallocated cost and coverage.
 
-These are versioned estimates, not claims about inaccessible provider internals or provider cost. The module remains optional as Proofwake develops its broader revision-evidence model.
+These are versioned estimates, not claims about inaccessible provider internals or provider cost. The module remains optional inside Proofwake's broader revision-evidence model.
 
 ## Install and inspect identity
 
@@ -115,6 +132,15 @@ node src/cli.js report --days 30 --by-repository
 node src/cli.js report --days 30 --json
 ```
 
+Task-specific evaluation evidence is available directly:
+
+```bash
+proofwake evaluation \
+  --repo teamleaderleo/stensibly \
+  --task-class oauth-client-lifecycle \
+  --output json
+```
+
 Set a reporting timezone explicitly when running on a server or inside a container:
 
 ```bash
@@ -134,7 +160,7 @@ With the collector running, open:
 http://127.0.0.1:7337/dashboard
 ```
 
-The current dashboard is the optional Shadowbill estimate view inside Proofwake. It includes rolling ranges, cost and activity summaries, daily detail, repository allocation, coverage, and delivery outcomes. Its next major change is a fleet-first view built around repository inventory, revision evidence, source freshness, failure, recovery, and missing expected signals.
+The current dashboard is the optional Shadowbill estimate view inside Proofwake. It includes rolling ranges, cost and activity summaries, daily detail, repository allocation, coverage, and delivery outcomes. The broader repository/revision and evaluation projections currently live in CLI/MCP surfaces while the fleet-first dashboard continues to evolve.
 
 Assets and report calls stay on the collector origin. The page uses a strict Content Security Policy and makes no third-party requests.
 
@@ -181,15 +207,15 @@ See [HTTP security](docs/http-security.md).
 
 ## MCP server
 
-The current implementation exposes the local ledger through a zero-dependency MCP stdio server:
+The current implementation exposes the local ledger and deterministic projections through a zero-dependency MCP stdio server:
 
 ```bash
 npm run mcp
 ```
 
-The existing `shadowbill_*` MCP tools remain compatibility interfaces. The report tools are read-only. Aggregate chat writes require explicit opt-in and reject undeclared fields, including prompt and response text.
+The existing `shadowbill_*` MCP tools remain compatibility interfaces. Reporting and evaluation projection tools are read-only. The evaluation MCP path exposes the same task-specific current/history/coverage/limitation model as `proofwake evaluation` and carries no registry, routing, approval, or mutation authority. Aggregate chat writes remain a separate explicit opt-in compatibility path and reject undeclared fields, including prompt and response text.
 
-Proofwake’s planned MCP surface will remain read-only by default and add fleet, repository, revision-evidence, failure, and recovery reports.
+See [MCP reporting](docs/mcp-reporting.md) for the current tool and disclosure boundary.
 
 ## GitHub webhooks
 
@@ -211,11 +237,11 @@ The JSONL store serialises local writes, coordinates concurrent processes with a
 
 The main ledger, lock-owner metadata, recovery sidecar, and generated collector token use owner-only permissions where the platform exposes POSIX mode bits.
 
-This append-oriented ledger is the starting point for Proofwake’s observation store. Derived repository and revision projections should remain rebuildable.
+This append-oriented ledger is Proofwake's observation store. Repository, revision, activity, and evaluation views are derived projections and remain rebuildable from accepted observations.
 
 ## Privacy boundary
 
-Current stored events contain metadata, hashes, timestamps, labels, counts, durations, statuses, and tool counts.
+Current stored events contain metadata, hashes, timestamps, labels, counts, durations, statuses, tool counts, and bounded evaluation facts.
 
 Excluded by default:
 
@@ -224,7 +250,8 @@ Excluded by default:
 - arbitrary command output and logs;
 - secrets and environment dumps;
 - PR descriptions and comments;
-- raw provider payloads.
+- raw provider payloads;
+- raw review prose and raw evaluation receipt bytes in projections.
 
 Future adapters must publish exact schemas, maximum sizes, trust classes, disclosure classes, redaction behaviour, and degraded-mode behaviour.
 
@@ -233,6 +260,8 @@ Future adapters must publish exact schemas, maximum sizes, trust classes, disclo
 Proofwake records observations and evidence. A passing receipt proves only what one declared tool observed under its declared conditions.
 
 The Shadowbill module reports API-equivalent estimates. Consumer ChatGPT does not expose cache hits, hidden reasoning tokens, internal tool traffic, context compaction, or routing decisions. Profiles keep those unknowns explicit.
+
+Evaluation evidence reports attributable marks/findings, current state, history, coverage, confidence, uncertainty, and limitations for a selected repository/task class. It does not become a global worker, reviewer, model, pod, or developer score.
 
 Prefer “observed passing,” “evidence present,” and “source coverage incomplete” over universal correctness claims.
 
