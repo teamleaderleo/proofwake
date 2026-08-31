@@ -2,45 +2,17 @@
 
 **The evidence trail behind every revision.**
 
-Proofwake is a local evidence index for software projects. It collects content-minimised observations from local commands, Git, GitHub, CI, browser reviews, deployments, domain-specific tools, and optional AI-usage estimates, then organises them by repository and revision.
+Proofwake is a local, content-minimised evidence index for software projects. It collects bounded observations from local commands, Git, GitHub, CI, browser reviews, deployments, domain tools, and optional AI-usage estimates, then organises them by repository and revision.
 
-The project aims to answer:
+It answers practical evidence questions:
 
 - What changed recently?
 - Which revisions have convincing evidence?
-- What is failing, stale, silent, or only partially observed?
+- What is failing, stale, sparse, partial, or still unobserved?
 - What recovered after failure?
 - Which repository needs attention next, and which source observation supports that conclusion?
 
-Proofwake observes and indexes. It does not schedule CI, operate runners, deploy software, assign work, approve mutations, ingest arbitrary logs, or rank developers by raw activity.
-
-## Project status
-
-The repository was originally named **Shadowbill** and currently contains Git and GitHub observation ingestion, a durable local ledger, deterministic repository/revision/activity projections, task-specific evaluation evidence, reports, a dashboard, diagnostics, a read-only MCP server, and the original optional AI-usage reckoner.
-
-Current main has moved well beyond the original estimate-only module. Local Git commits and signed GitHub webhooks can be written as strict content-minimised observations. Evaluation producers can append bounded work-evaluation and review-finding receipts, `proofwake evaluation` rebuilds a deterministic task-specific projection with immutable mark/finding history and conservative sufficiency, and the same evaluation projection is exposed through read-only MCP without gaining registry, routing, approval, or write authority.
-
-Proofwake is now the primary product and command identity. Compatibility remains for:
-
-- the `shadowbill` binary alias;
-- `SHADOWBILL_*` environment variables;
-- existing `~/.shadowbill` ledgers and collector-token files;
-- historical event schemas and MCP tool names;
-- legacy browser-extension storage keys.
-
-Clean installations use `~/.proofwake`. An existing `~/.shadowbill/events.jsonl` remains active until an explicit migration is performed. If both implicit ledgers exist, Proofwake refuses to choose or merge them. Run `proofwake status` to inspect the active identity and paths.
-
-## Read this first
-
-- [Product direction](docs/product-direction.md) — what Proofwake is for, who it serves, and what it deliberately avoids
-- [Architecture](docs/architecture.md) — event, evidence, privacy, trust, projection, and integration boundaries
-- [Roadmap](docs/roadmap.md) — the implementation sequence from the current Shadowbill codebase
-- [Ecosystem decisions](docs/ecosystem.md) — what existing standards and products already provide, and why Proofwake remains independent
-- [Naming migration](docs/naming-migration.md) — current aliases, precedence, storage selection, and migration safety
-- [Evaluation projection](docs/evaluation-projection.md) — current task-specific evaluation evidence model and read boundary
-- [MCP reporting](docs/mcp-reporting.md) — current read-only MCP projections and disclosure rules
-
-## Intended composition
+Proofwake observes and projects evidence. Source systems retain their own authority; coordination, assignment, approval, runner operation, deployment, and remediation live elsewhere. A passing receipt says what one declared producer observed under its declared conditions.
 
 ```text
 SmolRunner runs it.
@@ -50,40 +22,9 @@ Proofwake remembers the evidence trail.
 Stensibly coordinates what happens next.
 ```
 
-Proofwake should also import and export existing standards where they fit, including CloudEvents, CDEvents, OpenTelemetry semantic conventions, SLSA/in-toto provenance, and selected OpenLineage concepts.
+For the detailed product and trust model, see [product direction](docs/product-direction.md) and [architecture](docs/architecture.md). [Roadmap](docs/roadmap.md) owns implementation chronology and evolving milestone status.
 
-## Current evidence surfaces
-
-Proofwake's current observation/evidence model includes:
-
-- live local Git commit observations with bounded metadata and discarded source text;
-- signed GitHub webhook observations for pushes, pull requests, workflow runs, and deployment status;
-- deterministic repository, revision, activity, freshness, failure, and recovery projections;
-- strict work-evaluation and review-finding observation contracts with run attribution, confidence, uncertainty, and closed fact vocabularies;
-- `proofwake evaluation` for one repository/task-class projection with current marks/findings, immutable histories, exclusions, coverage, and limitations;
-- read-only MCP access to the merged reporting and evaluation projections.
-
-Missing or sparse evidence remains visible as missing or sparse. A projection does not manufacture a score, approval, route, or authority decision.
-
-## Optional Shadowbill estimate module
-
-The compatibility estimate module calculates the API-equivalent cost of subscription AI usage from observable local activity. It combines aggregate ChatGPT browser telemetry, local Git commit diffs, signed GitHub delivery events, and explicit pricing assumptions into daily, rolling, and repository-level reports.
-
-Conversation text and source patches stay out of the ledger.
-
-Current measurements include:
-
-- completed ChatGPT assistant turns and visible token estimates;
-- model and reasoning labels supplied by the browser collector;
-- tokens retained in local Git commits;
-- GitHub pushes, merged pull requests, workflow outcomes, and deployments;
-- daily and rolling API-equivalent cost estimates;
-- cost per commit, merged PR, successful CI run, deployment, and retained code token;
-- heuristic repository allocation with explicit unallocated cost and coverage.
-
-These are versioned estimates, not claims about inaccessible provider internals or provider cost. The module remains optional inside Proofwake's broader revision-evidence model.
-
-## Install and inspect identity
+## Quick start
 
 Requires Node.js 22 or newer.
 
@@ -91,48 +32,59 @@ Requires Node.js 22 or newer.
 npm install
 node src/cli.js status
 node src/cli.js status --json
+npm run serve
 ```
 
-The package exposes both `proofwake` and the compatibility alias `shadowbill` when installed as a command.
+The package exposes `proofwake` as the primary command and `shadowbill` as a compatibility alias.
 
-Storage selection is read-only and deterministic:
+A clean installation uses `~/.proofwake`. Existing `~/.shadowbill` storage remains supported under the current compatibility contract. `PROOFWAKE_*` configuration takes precedence over matching `SHADOWBILL_*` aliases, and an ambiguous pair of implicit old/new ledgers fails closed instead of choosing or combining them. `proofwake status` reports the active identity and paths without exposing secret values. See [naming migration](docs/naming-migration.md) for exact precedence, storage selection, legacy interfaces, and migration safety.
 
-1. `--data` wins;
-2. `PROOFWAKE_DATA` wins over `SHADOWBILL_DATA`;
-3. an existing `~/.proofwake/events.jsonl` is selected;
-4. otherwise an existing `~/.shadowbill/events.jsonl` is selected with a compatibility warning;
-5. otherwise a clean installation uses `~/.proofwake/events.jsonl`.
+## Current evidence surfaces
 
-Proofwake never silently combines the new and legacy ledgers.
+Current main includes:
 
-## Start the current collector
+- strict, content-minimised local Git observations and a bounded compatibility fallback for repositories without canonical GitHub identity;
+- signed GitHub webhook observations for supported push, merged pull-request, workflow-run, deployment-status, and published-release deliveries;
+- an append-oriented local observation ledger with deterministic replay/idempotency behavior and rebuildable projections;
+- deterministic repository, revision, activity, freshness, failure, and recovery views;
+- bounded work-evaluation and review-finding observations with attributable runs, confidence, uncertainty, coverage, and immutable history;
+- `proofwake evaluation` for one repository/task-class evidence view;
+- read-only Proofwake fleet/repository/revision/evaluation projections over MCP;
+- the original optional Shadowbill AI-usage estimate reports and dashboard.
+
+Missing, stale, sparse, partial, unavailable, and excluded evidence stays visible in projections. Proofwake does not turn missing evidence into a score or passing evidence into universal correctness, approval, causal attribution, routing, or a developer/repository productivity ranking.
+
+Detailed contracts live in [Git ingestion](docs/git-ingestion.md), [signed GitHub webhook ingestion](docs/github-webhook-ingestion.md), [evaluation projection](docs/evaluation-projection.md), [MCP reporting](docs/mcp-reporting.md), and [observation v1](docs/observation-v1.md). Legacy activity-report coexistence and duplicate-representation rules live in [activity report compatibility](docs/activity-report-compatibility.md).
+
+## Local collection and reports
+
+Start the loopback collector:
 
 ```bash
 npm run serve
 ```
 
-The collector listens on `http://127.0.0.1:7337`. A clean installation writes to `~/.proofwake/events.jsonl` and creates `~/.proofwake/collector-token` with owner-only permissions where supported. Existing Shadowbill installations keep using their legacy paths until explicitly migrated.
+Load the unpacked browser collector from [`extension/`](extension/). `proofwake status` shows the active collector-token path; keep the token local and paste it into the extension popup.
 
-Load the unpacked extension from [`extension/`](extension/), open its popup, and paste the collector token.
-
-Install local commit collection in any repository:
+Install local commit collection in a repository:
 
 ```bash
 node src/cli.js hook install /path/to/repository
 ```
 
-The hook preserves an existing shell `post-commit` hook and records metadata plus a token estimate for added lines. Added source text is discarded after tokenisation.
+The Git path records bounded metadata and retained-code estimates while discarding source text after collection. Hook/repository-identity details live in [Git ingestion](docs/git-ingestion.md) and [Git collection security](docs/git-collection-security.md).
 
-## Reports
+Read aggregate reports with:
 
 ```bash
 node src/cli.js report
-node src/cli.js report --days 30
 node src/cli.js report --days 30 --by-repository
 node src/cli.js report --days 30 --json
 ```
 
-Task-specific evaluation evidence is available directly:
+Repository allocation uses the versioned `same-day-added-code-tokens` heuristic. Unallocated cost and coverage remain explicit; the model is correlation-based rather than causal attribution. See [repository allocation](docs/repository-allocation.md).
+
+## Evaluation evidence
 
 ```bash
 proofwake evaluation \
@@ -141,129 +93,76 @@ proofwake evaluation \
   --output json
 ```
 
-Set a reporting timezone explicitly when running on a server or inside a container:
+The projection reports current marks/findings, immutable histories, coverage, exclusions, confidence, uncertainty, open findings, and limitations for the selected repository/task class. Conservative evidence sufficiency requires distinct target runs; multiple receipts for one target cannot create sample breadth. It remains a read-only evidence view with no assignment, routing, approval, merge, deployment, or global worker/reviewer/model score authority. See [evaluation projection](docs/evaluation-projection.md).
 
-```bash
-PROOFWAKE_TIMEZONE=America/Los_Angeles npm run serve
-node src/cli.js report --timezone America/Los_Angeles
-```
+## Dashboard and diagnostics
 
-`SHADOWBILL_TIMEZONE` remains a compatibility alias. Proofwake variables win when both names are present, and warnings are written to stderr so JSON stdout remains parseable.
-
-Repository allocation currently uses the versioned basis `same-day-added-code-tokens`. Days without retained-code evidence remain visibly unallocated. This is a correlated heuristic rather than causal attribution. See [repository allocation](docs/repository-allocation.md).
-
-## Local dashboard
-
-With the collector running, open:
+With the collector running:
 
 ```text
-http://127.0.0.1:7337/dashboard
+http://127.0.0.1:7337/dashboard/
 ```
 
-The current dashboard is the optional Shadowbill estimate view inside Proofwake. It includes rolling ranges, cost and activity summaries, daily detail, repository allocation, coverage, and delivery outcomes. The broader repository/revision and evaluation projections currently live in CLI/MCP surfaces while the fleet-first dashboard continues to evolve.
+The local dashboard is served from the collector origin with its browser-facing privacy controls. Current behavior belongs to [dashboard](docs/dashboard.md); Host, CORS, loopback, and reverse-proxy rules belong to [HTTP security](docs/http-security.md).
 
-Assets and report calls stay on the collector origin. The page uses a strict Content Security Policy and makes no third-party requests.
-
-## Diagnostics
-
-Inspect the local installation without modifying it:
+Inspect an installation read-only with:
 
 ```bash
 node src/cli.js doctor
 node src/cli.js doctor --json
 ```
 
-`doctor` checks ledger readability, lock state, recovery metadata, file permissions, collector-token configuration, pricing, timezone, and report generation. It does not create tokens, repair ledgers, remove locks, change permissions, or return secret and content-bearing fields.
+[Doctor](docs/doctor.md) owns ledger/readiness, lock/recovery, permission, token-configuration, pricing, timezone, and report-generation diagnostics.
 
-See [doctor](docs/doctor.md).
-
-## Browser collector authentication
-
-Browser-originated event writes require bearer authentication. Use `proofwake status` to find the active token path, then read that file locally.
-
-Choose a custom token file:
-
-```bash
-node src/cli.js serve --collector-token-file /private/path/proofwake-token
-```
-
-Or provide a direct value containing at least 32 characters:
-
-```bash
-PROOFWAKE_COLLECTOR_TOKEN='replace-with-a-long-random-value' npm run serve
-```
-
-`SHADOWBILL_COLLECTOR_TOKEN` and `SHADOWBILL_COLLECTOR_TOKEN_FILE` remain compatibility aliases.
-
-The event endpoint accepts aggregate chat events only and copies an allowlist of fields before persistence. Undeclared values such as prompt text are discarded.
-
-## HTTP boundary
-
-The collector binds to loopback and validates the HTTP `Host` authority before routing. Reverse-proxy deployments must explicitly allow their public authority.
-
-Cross-origin headers are emitted only for the authenticated browser routes. Health, reports, dashboard assets, webhooks, and unknown routes remain same-origin.
-
-See [HTTP security](docs/http-security.md).
-
-## MCP server
-
-The current implementation exposes the local ledger and deterministic projections through a zero-dependency MCP stdio server:
+## MCP
 
 ```bash
 npm run mcp
 ```
 
-The existing `shadowbill_*` MCP tools remain compatibility interfaces. Reporting and evaluation projection tools are read-only. The evaluation MCP path exposes the same task-specific current/history/coverage/limitation model as `proofwake evaluation` and carries no registry, routing, approval, or mutation authority. Aggregate chat writes remain a separate explicit opt-in compatibility path and reject undeclared fields, including prompt and response text.
+Proofwake-native projection tools are read-only and use the same deterministic projection functions as the CLI. The disclosure boundary returns bounded evidence/projection metadata while excluding content-bearing paths, commands/output, logs, receipt bytes, prompts/responses, credentials, and environment values. Existing Shadowbill report tools remain compatibility interfaces; aggregate chat writes remain separately opt-in. See [MCP reporting](docs/mcp-reporting.md).
 
-See [MCP reporting](docs/mcp-reporting.md) for the current tool and disclosure boundary.
+## GitHub webhooks and HTTP boundary
 
-## GitHub webhooks
+A configured webhook secret enables signed GitHub delivery ingestion. Signature verification is the provider-authority boundary; accepted observations keep reviewed scalar facts, repository/revision relationships, bounded provider identities, coverage, and digest-backed evidence references while discarding raw payload content and sensitive prose.
 
-Start the collector with a webhook secret:
-
-```bash
-PROOFWAKE_GITHUB_WEBHOOK_SECRET='replace-me' npm run serve
-```
-
-`SHADOWBILL_GITHUB_WEBHOOK_SECRET` remains a compatibility alias.
-
-Configure a GitHub App or repository webhook for pushes, pull requests, workflow runs, and deployment statuses. The collector verifies `X-Hub-Signature-256` before parsing or storing a delivery. GitHub delivery IDs provide idempotency. Source patches, PR descriptions, comments, logs, and deployment URLs are excluded.
-
-A hosted setup should place a TLS reverse proxy in front of the loopback listener and forward only the webhook route.
+The collector is loopback-first, validates HTTP `Host` authority, and grants cross-origin access only to the authenticated browser-collector routes. Hosted webhook ingress requires an explicitly configured TLS reverse proxy and narrow allowed authority. See [GitHub webhook ingestion](docs/github-webhook-ingestion.md) and [HTTP security](docs/http-security.md).
 
 ## Durable local ledger
 
-The JSONL store serialises local writes, coordinates concurrent processes with a filesystem lock, validates complete records after interrupted writes, and records recovered trailing bytes in a separate sidecar rather than silently discarding them.
+The append-oriented JSONL ledger is the durable observation source; repository, revision, activity, and evaluation views are derived and rebuildable. Local writers coordinate through a filesystem lock, preserve idempotency, sync accepted writes, and retain crash-truncated tail evidence in a recovery sidecar. Detailed locking, recovery, and file-permission behavior belongs to [ledger durability](docs/ledger-durability.md).
 
-The main ledger, lock-owner metadata, recovery sidecar, and generated collector token use owner-only permissions where the platform exposes POSIX mode bits.
-
-This append-oriented ledger is Proofwake's observation store. Repository, revision, activity, and evaluation views are derived projections and remain rebuildable from accepted observations.
+Historical Shadowbill rows and newer observation-v1 records can coexist under explicit compatibility readers without rewriting history or double-counting recognized duplicate representations. See [activity report compatibility](docs/activity-report-compatibility.md).
 
 ## Privacy boundary
 
-Current stored events contain metadata, hashes, timestamps, labels, counts, durations, statuses, tool counts, and bounded evaluation facts.
+Proofwake stores bounded metadata, hashes, timestamps, labels, counts, durations, statuses, tool/evidence identities, coverage, and reviewed evaluation facts.
 
-Excluded by default:
+Default exclusions include:
 
 - prompts and responses;
-- source patches and added source text;
+- source patches, added source text, and arbitrary source content;
 - arbitrary command output and logs;
 - secrets and environment dumps;
-- PR descriptions and comments;
+- pull-request descriptions/comments and other unreviewed prose;
 - raw provider payloads;
-- raw review prose and raw evaluation receipt bytes in projections.
+- raw review prose, raw evaluation receipt bytes, and content-bearing wrapper extensions where the narrower contracts exclude them.
 
-Future adapters must publish exact schemas, maximum sizes, trust classes, disclosure classes, redaction behaviour, and degraded-mode behaviour.
+Every new adapter should define exact schemas, maximum sizes, source/trust identity, disclosure classes, redaction/truncation, idempotency/conflict behavior, and degraded-mode behavior before broadening collection.
 
-## Accuracy and language
+## Accuracy and authority
 
-Proofwake records observations and evidence. A passing receipt proves only what one declared tool observed under its declared conditions.
+Proofwake records observations and evidence. Evidence keeps its producer identity, trust class, coverage, freshness, and limitations. Relationships come from source evidence; timestamp proximity alone does not create causality.
 
-The Shadowbill module reports API-equivalent estimates. Consumer ChatGPT does not expose cache hits, hidden reasoning tokens, internal tool traffic, context compaction, or routing decisions. Profiles keep those unknowns explicit.
+The optional Shadowbill module reports API-equivalent estimates under versioned assumptions. Provider-internal cache behavior, hidden reasoning tokens, internal tool traffic, context handling, routing, and exact provider cost remain unknown unless a source exposes them. The estimate module can be disabled without reducing Proofwake's revision-evidence role.
 
-Evaluation evidence reports attributable marks/findings, current state, history, coverage, confidence, uncertainty, and limitations for a selected repository/task class. It does not become a global worker, reviewer, model, pod, or developer score.
+Use language such as “observed passing,” “evidence present,” “source coverage incomplete,” and “recovery observed.” [Product direction](docs/product-direction.md) owns the broader language and authority discipline.
 
-Prefer “observed passing,” “evidence present,” and “source coverage incomplete” over universal correctness claims.
+## Compatibility and current direction
+
+Proofwake is the primary product identity. Shadowbill command/environment/storage compatibility remains active under [naming migration](docs/naming-migration.md), and historical schemas/records keep their existing identities. Current SmolRunner/Glaeda presentation and compatibility work is tracked separately; this README keeps the current landed identities until that owner migration changes them.
+
+For detailed milestone history and active/future lanes, use [roadmap](docs/roadmap.md). README stays focused on the current public contract.
 
 ## Development
 
